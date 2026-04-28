@@ -138,15 +138,57 @@ sudo systemctl reload nginx
 
 The Pi-hole dashboard is now reachable at `http://pihole.example.com/admin`.
 
-### 4. (Optional) Enable HTTPS with Certbot
+---
+
+## HTTPS with Certbot (Let's Encrypt)
+
+Secure the Pi-hole dashboard with a free TLS certificate from Let's Encrypt. Certbot will automatically edit the Nginx config to add HTTPS and redirect HTTP → HTTPS.
+
+> **Prerequisites:** your domain's DNS must point to this server and TCP port `443` must be open in the firewall.
+
+### 1. Install Certbot
 
 ```bash
+sudo apt-get update
 sudo apt-get install -y certbot python3-certbot-nginx
+```
+
+### 2. Obtain a certificate
+
+```bash
 sudo certbot --nginx -d pihole.example.com
+```
+
+Certbot will:
+- Verify domain ownership via HTTP challenge
+- Issue and install the certificate
+- Rewrite `nginx/pihole.conf` to listen on port 443 with SSL
+- Add an HTTP → HTTPS redirect
+
+### 3. Reload Nginx
+
+```bash
+sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Certbot will automatically update the config to redirect HTTP → HTTPS and install a Let's Encrypt certificate.
+The dashboard is now available at `https://pihole.example.com/admin`.
+
+### 4. Verify auto-renewal
+
+Certbot installs a systemd timer (or cron job) that renews certificates automatically before they expire. Check it with:
+
+```bash
+sudo systemctl status certbot.timer
+```
+
+### 5. Test renewal manually
+
+```bash
+sudo certbot renew --dry-run
+```
+
+A successful dry-run means auto-renewal is working correctly. No further action is needed.
 
 ---
 
