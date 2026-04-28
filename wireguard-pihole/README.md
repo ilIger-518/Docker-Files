@@ -100,8 +100,53 @@ The script will:
 |---|---|
 | From the server itself | `http://localhost:8080/admin` |
 | While connected via WireGuard | `http://172.20.0.2/admin` |
+| Via Nginx reverse proxy | `http://pihole.example.com/admin` |
 
 To restrict the web UI to WireGuard clients only, comment out the `ports` block under the `pihole` service in `docker-compose.yml`.
+
+---
+
+## Nginx reverse proxy
+
+A ready-made Nginx config is provided in `nginx/pihole.conf`. It proxies `http://pihole.example.com/admin` to the Pi-hole container running on `127.0.0.1:8080`.
+
+### 1. Install Nginx
+
+```bash
+sudo apt-get update && sudo apt-get install -y nginx
+```
+
+### 2. Enable the site
+
+```bash
+# Copy the config into Nginx's sites-available
+sudo cp nginx/pihole.conf /etc/nginx/sites-available/pihole
+
+# Replace the placeholder domain with your actual domain or server IP
+sudo nano /etc/nginx/sites-available/pihole   # edit server_name
+
+# Create a symlink to enable the site
+sudo ln -s /etc/nginx/sites-available/pihole /etc/nginx/sites-enabled/pihole
+```
+
+### 3. Test and reload
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+The Pi-hole dashboard is now reachable at `http://pihole.example.com/admin`.
+
+### 4. (Optional) Enable HTTPS with Certbot
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d pihole.example.com
+sudo systemctl reload nginx
+```
+
+Certbot will automatically update the config to redirect HTTP → HTTPS and install a Let's Encrypt certificate.
 
 ---
 
@@ -113,6 +158,8 @@ wireguard-pihole/
 ├── .env.example          ← copy to .env and fill in values
 ├── add-client.sh         ← script to add new WireGuard peers
 ├── README.md
+├── nginx/
+│   └── pihole.conf       ← Nginx reverse proxy config for the Pi-hole dashboard
 └── config/               ← created automatically on first run
     ├── wireguard/
     │   ├── wg_confs/wg0.conf   ← server config (peers appended here)
