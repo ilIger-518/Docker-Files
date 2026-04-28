@@ -1,0 +1,60 @@
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TIMEZONE:-UTC}
+      - SERVERURL=${SERVER_URL}
+      - SERVERPORT=${SERVER_PORT:-51820}
+      - PEERS=${INITIAL_PEERS:-phone}
+      - PEERDNS=172.20.0.2
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=0.0.0.0/0,::/0
+      - LOG_CONFS=true
+    volumes:
+      - ./config/wireguard:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "${SERVER_PORT:-51820}:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    networks:
+      wg-pihole:
+        ipv4_address: 172.20.0.3
+    restart: unless-stopped
+    depends_on:
+      - pihole
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    environment:
+      - TZ=${TIMEZONE:-UTC}
+      - WEBPASSWORD=${PIHOLE_PASSWORD:?PIHOLE_PASSWORD must be set in .env}
+      - FTLCONF_LOCAL_IPV4=172.20.0.2
+      - DNSMASQ_LISTENING=all
+    volumes:
+      - ./config/pihole/etc-pihole:/etc/pihole
+      - ./config/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    # Pi-hole's web UI (http://localhost:8080/admin) is reachable on the host.
+    # When connected via WireGuard you can also reach it at http://172.20.0.2/admin.
+    # Comment out the ports block to restrict access to WireGuard clients only.
+    ports:
+      - "127.0.0.1:8080:80"
+    networks:
+      wg-pihole:
+        ipv4_address: 172.20.0.2
+    restart: unless-stopped
+
+networks:
+  wg-pihole:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
